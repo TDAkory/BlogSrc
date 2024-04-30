@@ -10,9 +10,11 @@
 	- [flock](#flock)
 		- [调用链](#调用链)
 		- [核心实现](#核心实现)
+		- [锁加入](#锁加入)
 		- [锁删除](#锁删除)
 		- [锁冲突检测](#锁冲突检测)
-		- [锁阻塞登记](#锁阻塞登记)
+		- [锁加入阻塞队列](#锁加入阻塞队列)
+		- [唤醒锁](#唤醒锁)
 	- [fcntl](#fcntl)
 
 
@@ -298,6 +300,14 @@ static DEFINE_HASHTABLE(blocked_hash, BLOCKED_HASH_BITS);
 
 ## flock
 
+FL_FLOCK锁，总是与一个文件对象相关联，因此由一个打开该文件的进程（或共享同一个文件描述符的子进程）来维护。只要fd映射的file对象不一样，就认为是不同的拥有者，而不关心进程是否相同。对于相同的文件，只要调用open，就会生成一个新的file对象。这也就能解释FL_FLOCK如下语义了：
+
+- fork产生的子进程可以继承父进程所设置的锁。
+
+- 通过dup或者fork产生的两个fd，都可以加锁而不会产生死锁，这两个fd都可以操作这把锁（例如通过一个fd加锁，通过另一个fd可以释放锁），但是上锁过程中关闭其中一个fd，并不会释放锁（因为file对象并没有释放），只有关闭所有复制出的fd，锁才会释放。
+
+- 使用open两次打开同一个文件，得到的两个fd是独立的（因为底层对应两个file对象），通过其中一个加锁，通过另一个无法解锁。
+
 ### 调用链
 
 shell命令中的`flock`，和`flock()`函数，最终都会调用到`sys_flock()`:
@@ -329,37 +339,37 @@ shell命令中的`flock`，和`flock()`函数，最终都会调用到`sys_flock(
  */
 SYSCALL_DEFINE2(flock, unsigned int, fd, unsigned int, cmd)
 {
-	struct fd f = fdget(fd);
+	struct fd f = fdget(fd);	// 获取文件描述符对应的struct file对象，同时引用计数+1
 	struct file_lock *lock;
 	int can_sleep, unlock;
 	int error;
 
 	error = -EBADF;
-	if (!f.file)
+	if (!f.file)	// 检测f.file是否有效
 		goto out;
 
-	can_sleep = !(cmd & LOCK_NB);
+	can_sleep = !(cmd & LOCK_NB);	// non-blocking 则不支持等待
 	cmd &= ~LOCK_NB;
-	unlock = (cmd == LOCK_UN);
+	unlock = (cmd == LOCK_UN);		// 是否是解锁
 
 	if (!unlock && !(cmd & LOCK_MAND) &&
-	    !(f.file->f_mode & (FMODE_READ|FMODE_WRITE)))
+	    !(f.file->f_mode & (FMODE_READ|FMODE_WRITE)))	// 检查file的读写权限
 		goto out_putf;
 
-	lock = flock_make_lock(f.file, cmd, NULL);
+	lock = flock_make_lock(f.file, cmd, NULL);	// 获取一个file_lock对象，并初始化
 	if (IS_ERR(lock)) {
 		error = PTR_ERR(lock);
 		goto out_putf;
 	}
 
 	if (can_sleep)
-		lock->fl_flags |= FL_SLEEP;
+		lock->fl_flags |= FL_SLEEP;		// blocking 则设置 FL_SLEEP 标志
 
 	error = security_file_lock(f.file, lock->fl_type);
 	if (error)
 		goto out_free;
 
-	if (f.file->f_op->flock)
+	if (f.file->f_op->flock)		// 如果文件系统支持flock，则调用文件系统的flock接口
 		error = f.file->f_op->flock(f.file,
 					  (can_sleep) ? F_SETLKW : F_SETLK,
 					  lock);
@@ -370,7 +380,7 @@ SYSCALL_DEFINE2(flock, unsigned int, fd, unsigned int, cmd)
 	locks_free_lock(lock);
 
  out_putf:
-	fdput(f);
+	fdput(f);	// 文件描述符引用计数-1
  out:
 	return error;
 }
@@ -534,6 +544,8 @@ out:
 
 原因是因为flock归根到底还是个建议锁，它不要求进程一定要遵守，当一个进程对某个文件使用了文件锁，但是另一个进程却压根不去检查该文件是否已经存在文件锁，霸道地直接读写文件内容，事实上内核并不会阻止。所以，flock有效的前提是大家都遵守同样的锁规则，在读写文件前都需要提前去检查一下是否某个进程还持有着文件锁。当然，为了功能性考虑，flock还是支持LOCK_SH（共享锁）和LOCK_EX（排他锁）多种模式的，于是，用一个链表来存储不同进程的共享锁自然很有必要。
 
+### 锁加入
+
 ### 锁删除
 
 在上述函数中初次遍历inode上的锁链表时，如果找到了一个锁节点，其fl_file文件对象相同，但fl_type锁类型不同的时候，会将当前inode上的锁先释放掉：
@@ -558,8 +570,6 @@ locks_delete_lock_ctx(struct file_lock *fl, struct list_head *dispose)
 ### 锁冲突检测
 
 FL_FLOCK锁没有用到fl_owner字段，因为内核判断FL_FLOCK类型锁的拥有者，是通过fl_file字段即打开的文件对象区分的。
-
-FL_FLOCK锁，总是与一个文件对象相关联，因此由一个打开该文件的进程（或共享同一个文件描述符的子进程）来维护。只要fd映射的file对象不一样，就认为是不同的拥有者，而不关心进程是否相同。对于相同的文件，只要调用open，就会生成一个新的file对象。
 
 `locks_conflict`中的阻塞判断也是直观的，只要当前或入参有任一个是写锁，就认为是存在阻塞。
 
@@ -595,7 +605,7 @@ static bool locks_conflict(struct file_lock *caller_fl,
 }
 ```
 
-### 锁阻塞登记
+### 锁加入阻塞队列
 
 在上面的冲突检测中，检测到冲突、且入参支持超时等待的request，会被加入到对应fl的阻塞队列中
 
@@ -634,23 +644,28 @@ static void __locks_insert_block(struct file_lock *blocker,
 	BUG_ON(!list_empty(&waiter->fl_blocked_member));
 
 new_blocker:
-	list_for_each_entry(fl, &blocker->fl_blocked_requests, fl_blocked_member)
+	// 一个基于阻塞队列的深度优先遍历，从入参 blocker 的阻塞队列开始，查找与入参 waiter 也存在冲突的队列上waiter，并将这个waiter更新为blocker
+	// 最终，新的 waiter 会被插入到那个阻塞它的请求之后。这样做的目的是维护等待队列的顺序，确保按照特定的规则（可能是先来先服务）来授予锁。
+	list_for_each_entry(fl, &blocker->fl_blocked_requests, fl_blocked_member) 
 		if (conflict(fl, waiter)) {
 			blocker =  fl;
 			goto new_blocker;
 		}
-	waiter->fl_blocker = blocker;
-	list_add_tail(&waiter->fl_blocked_member, &blocker->fl_blocked_requests);
+	waiter->fl_blocker = blocker;	// 更新waiter的fl_blocker属性
+	list_add_tail(&waiter->fl_blocked_member, &blocker->fl_blocked_requests);	// 将waiter加入到blocker的阻塞队列中
 	if (IS_POSIX(blocker) && !IS_OFDLCK(blocker))
+		// 上述条件下，将waiter加入到block_hash中
 		locks_insert_global_blocked(waiter);
 
 	/* The requests in waiter->fl_blocked are known to conflict with
 	 * waiter, but might not conflict with blocker, or the requests
 	 * and lock which block it.  So they all need to be woken.
 	 */
-	__locks_wake_up_blocks(waiter);
+	__locks_wake_up_blocks(waiter);		// 尝试唤醒 waiter->fl_blocked_requests 上的锁节点
 }
 ```
+
+### 唤醒锁
 
 ## fcntl
 
