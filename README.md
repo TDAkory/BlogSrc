@@ -4,3 +4,15 @@
 
 - [WeChat](https://mp.weixin.qq.com/)
 - [知乎](https://www.zhihu.com/creator)
+
+## Working
+
+- [从源码理解flock](flock_in_depth.md)
+- [UnixDomainSocket send & recv之间发生了什么](what_happened_between_send_and_recv.md)
+- [为什么C++需要ADI](why_cpp_has_ADL.md)
+- [Linux中的数据结构](../LinuxLearn/godeep/Things_about_data_structure_in_linux.md)
+
+## Published
+
+- [从源码理解Linux系统调用](how_to_define_a_syscall.md)
+- [理解NUMA中的概念](../AppFrameThoughts/Computer/011_numa_concept.md)
