@@ -11,6 +11,7 @@
 - [UnixDomainSocket send & recv之间发生了什么](what_happened_between_send_and_recv.md)
 - [为什么C++需要ADI](why_cpp_has_ADL.md)
 - [Linux中的数据结构](../LinuxLearn/godeep/Things_about_data_structure_in_linux.md)
+- [Linux内核内存模型](../LinuxLearn/godeep/Things_about_kernel_memory_model.md)
 
 ## Published
 
