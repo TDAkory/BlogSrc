@@ -1,4 +1,6 @@
-# Why C++ has Argument-dependent lookup
+# 为什么C++有参数依赖查找（ADL）？
+
+从一个编译问题说起：
 
 ```shell
 xxx.cc:100: error: reference to 'sort' is ambiguous
@@ -114,12 +116,149 @@ X C::arr[number], brr[number];    // Error: look up for X finds ::X, not C::X
 C::X C::arr[number], brr[number]; // OK: size of arr is 50, size of brr is 100
 ```
 
-## 参数依赖查找
+## [参数依赖查找](https://en.cppreference.com/w/cpp/language/adl)
+
+Argument-dependent lookup (ADL) 是一组规则，用于在函数调用表达式中查找未限定的函数名称，包括对重载运算符的隐式函数调用。除了通常的未限定名称查找所考虑的作用域和命名空间外，这些函数名称还会在其参数的命名空间中进行查找。
+
+```c
+#include <iostream>
+ 
+int main()
+{
+    std::cout << "Test\n"; // There is no operator<< in global namespace, but ADL
+                           // examines std namespace because the left argument is in
+                           // std and finds std::operator<<(std::ostream&, const char*)
+    operator<<(std::cout, "Test\n"); // Same, using function call notation
+ 
+    // However,
+    std::cout << endl; // Error: “endl” is not declared in this namespace.
+                       // This is not a function call to endl(), so ADL does not apply
+ 
+    endl(std::cout); // OK: this is a function call: ADL examines std namespace
+                     // because the argument of endl is in std, and finds std::endl
+ 
+    (endl)(std::cout); // Error: “endl” is not declared in this namespace.
+                       // The sub-expression (endl) is not an unqualified-id
+}
+```
+
+ADL 的工作原理可以总结为以下步骤：
+
+* 首先会判断是否执行ADL：如果通常的未限定查找结果中包含类成员声明、块作用域中的函数声明（非using声明）或任何非函数或函数模板的声明，则不执行ADL。
+* 然后对每个参数进行类型检查：对于函数调用表达式中的每个参数，会检查其类型以确定将添加到查找中的相关命名空间和类（具体不同类型对应的命名空间规则比较复杂，详见cppreference）
+* 接着关联集合：基于参数类型，会构建一个关联的命名空间和类的集合。例如，对于类类型参数，包括该类本身、其所有直接和间接基类以及这些类最内层的包围命名空间。
+* 查找合并：将普通未限定查找找到的声明集合与ADL找到的声明集合合并，并应用特殊规则，例如，通过ADL可见的关联类中的友元函数和函数模板，即使它们在普通查找中不可见。
+
+ADL 使得在类同名空间中定义的非成员函数和运算符，如果通过ADL被找到，则被视为该类公共接口的一部分：
+
+```c
+template<typename T>
+struct number
+{
+    number(int);
+    friend number gcd(number x, number y) { return 0; }; // Definition within
+                                                         // a class template
+};
+ 
+// Unless a matching declaration is provided gcd is
+// an invisible (except through ADL) member of this namespace
+void g()
+{
+    number<double> a(3), b(4);
+    a = gcd(a, b); // Finds gcd because number<double> is an associated class,
+                   // making gcd visible in its namespace (global scope)
+//  b = gcd(3, 4); // Error; gcd is not visible
+}
+```
+
+如果函数调用是模板函数，并且模板参数是显式指定的，那么必须通过普通查找找到模板的声明。如果没有找到声明，就会遇到一个语法错误，因为编译器会期望一个已知的名称后面跟一个小于号（'<'）：
+
+```c
+namespace N1
+{
+    struct S {};
+ 
+    template<int X>
+    void f(S);
+}
+ 
+namespace N2
+{
+    template<class T>
+    void f(T t);
+}
+ 
+void g(N1::S s)
+{
+    f<3>(s);     // Syntax error until C++20 (unqualified lookup finds no f)
+    N1::f<3>(s); // OK, qualified lookup finds the template 'f'
+    N2::f<3>(s); // Error: N2::f does not take a non-type parameter
+                 //        N1::f is not looked up because ADL only works
+                 //              with unqualified names
+ 
+    using N2::f;
+    f<3>(s); // OK: Unqualified lookup now finds N2::f
+             //     then ADL kicks in because this name is unqualified
+             //     and finds N1::f
+}
+```
+
+另一个加深理解的例子：
+
+```c
+namespace A
+{
+    struct X;
+    struct Y;
+ 
+    void f(int);
+    void g(X);
+}
+ 
+namespace B
+{
+    void f(int i)
+    {
+        f(i); // Calls B::f (endless recursion)
+    }
+ 
+    void g(A::X x)
+    {
+        g(x); // Error: ambiguous between B::g (ordinary lookup)
+              //        and A::g (argument-dependent lookup)
+    }
+ 
+    void h(A::Y y)
+    {
+        h(y); // Calls B::h (endless recursion): ADL examines the A namespace
+              // but finds no A::h, so only B::h from ordinary lookup is used
+    }
+}
+```
 
 ## 回到问题
 
+那么回到最开始的问题。
+
+为什么单独编译库的源文件 `xxx.cc` 没有问题呢？ `sort(vec_.begin(), vec_.end(), std::less<double>());`，显而易见，这里虽然没有显式指定`sort`所属的命名空间`std`，但是其参数 `vec_` 和 `less` 是有明确命名空间的，这个命名空间在ADL的过程中被查找，因此最终找到了 `std::sort` 的函数声明。
+
+为什么与 `yyy.h` 一起编译的时候，在没有`include`的情况下也会失败呢？ 是因为在全局查找的过程中首先找到了 `namespace sort`，所以此时编译器指出，`sort(vec_.begin(), vec_.end(), std::less<double>());` 是有歧义的，编译器不知道哪个是正确的。
+
 ## 为什么C++会有ADL
+
+为什么在限定名称查找和非限定名称查找之外，C++还要提供参数依赖查找这样的机制呢？它其实是在规范的查找框架下，提供了一种灵活性的补充：
+
+* 增强的表达能力：ADL允许程序员调用与参数类型相关的非成员函数，而不必显式地指定这些函数所在的命名空间。这提高了代码的可读性和表达能力。
+* 支持泛型编程：在模板编程中，ADL使得模板能够使用与模板参数类型相关的特定操作，而无需程序员显式地指定这些操作的命名空间。这使得模板更加通用和灵活。
+* 避免命名冲突：ADL通过在参数类型的命名空间中查找函数，减少了全局命名空间的污染，有助于避免命名冲突。
+* 支持自定义操作：ADL使得程序员可以在自己的类型所在的命名空间中定义与标准库类型相关的操作，如自定义的swap函数。这样，当使用标准库算法时，这些自定义操作可以被自动使用。
+* 符合C++的设计哲学：C++语言的设计哲学之一是提供强大而灵活的工具，以支持各种编程范式。ADL是这一哲学的体现，它提供了一种自然而直观的方式来处理与类型相关的操作。
+* 历史原因：ADL是C++早期版本中就已经存在的特性，它随着语言的发展而逐渐演化，成为C++中不可或缺的一部分。
 
 ## 参考引用
 
+> 关于"在C++中确定一个名称"这一相关话题，本文仍有一些未提及的场景，比如模板参数推导、重载解析等，可以参考：
+
 - [Name lookup](https://en.cppreference.com/w/cpp/language/lookup)
+- [Template argument deduction](https://en.cppreference.com/w/cpp/language/function_template)
+- [Overload resolution](https://en.cppreference.com/w/cpp/language/overload_resolution)
