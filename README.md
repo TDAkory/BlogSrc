@@ -4,6 +4,7 @@
 
 - [WeChat](https://mp.weixin.qq.com/)
 - [知乎](https://www.zhihu.com/creator)
+- [掘金](https://juejin.cn/)
 
 ## Working
 
@@ -12,7 +13,8 @@
 - [从源码学习Linux中的数据结构(二)](../LinuxLearn/godeep/Things_about_kernel_data_structure_2.md)
 - [Linux内核内存模型](../LinuxLearn/godeep/Things_about_kernel_memory_model.md)
 - [详解CoreDump：原理及优化手段](../CppLearn/Test_Perf_Debug/debug/Things_about_coredump.md)
-- [fork的问题和at_fork的使用]()
+- [fork的问题和at_fork的使用](../LinuxLearn/godeep/Things_about_fork.md)
+- [C++26反射，我们可能得到什么？]()
   
 ## Published
 
