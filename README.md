@@ -15,6 +15,7 @@
 - [详解CoreDump：原理及优化手段](../CppLearn/Test_Perf_Debug/debug/Things_about_coredump.md)
 - [fork的问题和at_fork的使用](../LinuxLearn/godeep/Things_about_fork.md)
 - [C++26反射，我们可能得到什么？]()
+- [rust特征深入：孤儿规则、特征定义中的特征约束]
   
 ## Published
 
