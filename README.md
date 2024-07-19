@@ -17,6 +17,7 @@
 - [C++26反射，我们可能得到什么？]()
 - [rust特征深入：孤儿规则、特征定义中的特征约束]
 - [什么是flat_map，什么场景使用？](../CSFundations/data_structure/Map/About_flat_map.md)
+- [深入理解thrift、fbthrift IO模型]()
   
 ## Published
 
