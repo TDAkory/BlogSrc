@@ -18,6 +18,8 @@
 - [rust特征深入：孤儿规则、特征定义中的特征约束]
 - [什么是flat_map，什么场景使用？](../CSFundations/data_structure/Map/About_flat_map.md)
 - [深入理解thrift、fbthrift IO模型]()
+- [深入理解`/proc`文件系统](../LinuxLearn/godeep/proc_fs/Things_about_proc_fs.md)
+- [通过例子理解C++filesystem](../CppLearn/Topics/Standard_Lib/filesystem_through_examples.md)
   
 ## Published
 

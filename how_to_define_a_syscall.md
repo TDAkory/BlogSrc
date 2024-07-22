@@ -22,11 +22,11 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count){
 
 ```c
 #ifndef SYSCALL_DEFINE0
-#define SYSCALL_DEFINE0(sname)					\
-	SYSCALL_METADATA(_##sname, 0);				\
-	asmlinkage long sys_##sname(void);			\
-	ALLOW_ERROR_INJECTION(sys_##sname, ERRNO);		\
-	asmlinkage long sys_##sname(void)
+#define SYSCALL_DEFINE0(sname)                      \
+    SYSCALL_METADATA(_##sname, 0);                  \
+    asmlinkage long sys_##sname(void);              \
+    ALLOW_ERROR_INJECTION(sys_##sname, ERRNO);      \
+    asmlinkage long sys_##sname(void)
 #endif /* SYSCALL_DEFINE0 */
 
 #define SYSCALL_DEFINE1(name, ...) SYSCALL_DEFINEx(1, _##name, __VA_ARGS__)
@@ -37,36 +37,36 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count){
 #define SYSCALL_DEFINE6(name, ...) SYSCALL_DEFINEx(6, _##name, __VA_ARGS__)
 
 #define SYSCALL_DEFINEx(x, sname, ...)				\
-	SYSCALL_METADATA(sname, x, __VA_ARGS__)			\
-	__SYSCALL_DEFINEx(x, sname, __VA_ARGS__)
+    SYSCALL_METADATA(sname, x, __VA_ARGS__)			\
+    __SYSCALL_DEFINEx(x, sname, __VA_ARGS__)
 ```
 
 ## 元信息部分
 
 ```c
 #define SYSCALL_METADATA(sname, nb, ...)			\ 
-	static const char *types_##sname[] = {			\
-		__MAP(nb,__SC_STR_TDECL,__VA_ARGS__)		\
-	};												\
-	static const char *args_##sname[] = {			\
-		__MAP(nb,__SC_STR_ADECL,__VA_ARGS__)		\
-	};												\
-	SYSCALL_TRACE_ENTER_EVENT(sname);				\
-	SYSCALL_TRACE_EXIT_EVENT(sname);				\
-	static struct syscall_metadata __used			\
-	  __syscall_meta_##sname = {					\
-		.name 		= "sys"#sname,					\
-		.syscall_nr	= -1,	/* Filled in at boot */	\
-		.nb_args 	= nb,							\
-		.types		= nb ? types_##sname : NULL,	\
-		.args		= nb ? args_##sname : NULL,		\
-		.enter_event	= &event_enter_##sname,		\
-		.exit_event	= &event_exit_##sname,			\
-		.enter_fields	= LIST_HEAD_INIT(__syscall_meta_##sname.enter_fields), \
-	};												\
-	static struct syscall_metadata __used			\
-	  __attribute__((section("__syscalls_metadata")))	\
-	 *__p_syscall_meta_##sname = &__syscall_meta_##sname;
+    static const char *types_##sname[] = {			\
+        __MAP(nb,__SC_STR_TDECL,__VA_ARGS__)		\
+    };												\
+    static const char *args_##sname[] = {			\
+        __MAP(nb,__SC_STR_ADECL,__VA_ARGS__)		\
+    };												\
+    SYSCALL_TRACE_ENTER_EVENT(sname);				\
+    SYSCALL_TRACE_EXIT_EVENT(sname);				\
+    static struct syscall_metadata __used			\
+      __syscall_meta_##sname = {					\
+        .name 		= "sys"#sname,					\
+        .syscall_nr	= -1,	/* Filled in at boot */	\
+        .nb_args 	= nb,							\
+        .types		= nb ? types_##sname : NULL,	\
+        .args		= nb ? args_##sname : NULL,		\
+        .enter_event	= &event_enter_##sname,		\
+        .exit_event	= &event_exit_##sname,			\
+        .enter_fields	= LIST_HEAD_INIT(__syscall_meta_##sname.enter_fields), \
+    };												\
+    static struct syscall_metadata __used			\
+      __attribute__((section("__syscalls_metadata")))	\
+     *__p_syscall_meta_##sname = &__syscall_meta_##sname;
 ```
 
 宏的入参分别是：函数名、参数个数、参数
@@ -87,23 +87,23 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count){
  */
 #ifndef __SYSCALL_DEFINEx
 #define __SYSCALL_DEFINEx(x, name, ...)								\
-	__diag_push();													\
-	__diag_ignore(GCC, 8, "-Wattribute-alias",						\
-		      "Type aliasing is used to sanitize syscall arguments");\
-	asmlinkage long sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))		\
-		__attribute__((alias(__stringify(__se_sys##name))));		\
-	ALLOW_ERROR_INJECTION(sys##name, ERRNO);						\
-	static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__));\
-	asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__));	\
-	asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__))	\
-	{																\
-		long ret = __do_sys##name(__MAP(x,__SC_CAST,__VA_ARGS__));	\
-		__MAP(x,__SC_TEST,__VA_ARGS__);								\
-		__PROTECT(x, ret,__MAP(x,__SC_ARGS,__VA_ARGS__));			\
-		return ret;													\
-	}																\
-	__diag_pop();													\
-	static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))
+    __diag_push();													\
+    __diag_ignore(GCC, 8, "-Wattribute-alias",						\
+              "Type aliasing is used to sanitize syscall arguments");\
+    asmlinkage long sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))		\
+        __attribute__((alias(__stringify(__se_sys##name))));		\
+    ALLOW_ERROR_INJECTION(sys##name, ERRNO);						\
+    static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__));\
+    asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__));	\
+    asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__))	\
+    {																\
+        long ret = __do_sys##name(__MAP(x,__SC_CAST,__VA_ARGS__));	\
+        __MAP(x,__SC_TEST,__VA_ARGS__);								\
+        __PROTECT(x, ret,__MAP(x,__SC_ARGS,__VA_ARGS__));			\
+        return ret;													\
+    }																\
+    __diag_pop();													\
+    static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))
 #endif /* __SYSCALL_DEFINEx */
 ```
 
@@ -114,11 +114,11 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count){
 * 注意到，`__se_sys_函数名`的参数是使用`__SC_LONG`定义的, 因此在展开时会将参数类型转换为`long`。这里转换的目的，因为使用`long`型的版本可以在一些64位内核系统上使得在兼容32位应用时还可以正确的被转换。
   
   ```c
-	#define __TYPE_AS(t, v)	__same_type((__force t)0, v)
-	#define __TYPE_IS_L(t)	(__TYPE_AS(t, 0L))
-	#define __TYPE_IS_UL(t)	(__TYPE_AS(t, 0UL))
-	#define __TYPE_IS_LL(t) (__TYPE_AS(t, 0LL) || __TYPE_AS(t, 0ULL))
-	#define __SC_LONG(t, a) __typeof(__builtin_choose_expr(__TYPE_IS_LL(t), 0LL, 0L)) a
+    #define __TYPE_AS(t, v)	__same_type((__force t)0, v)
+    #define __TYPE_IS_L(t)	(__TYPE_AS(t, 0L))
+    #define __TYPE_IS_UL(t)	(__TYPE_AS(t, 0UL))
+    #define __TYPE_IS_LL(t) (__TYPE_AS(t, 0LL) || __TYPE_AS(t, 0ULL))
+    #define __SC_LONG(t, a) __typeof(__builtin_choose_expr(__TYPE_IS_LL(t), 0LL, 0L)) a
   ```
 
 在`__se_sys_函数名`中做了四件事：
@@ -172,8 +172,8 @@ asmlinkage long sys_read(unsigned int fd, char __user *buf, size_t count);
 /* May not be marked __init: used by software suspend */
 void syscall_init(void)
 {
-	wrmsr(MSR_STAR, 0, (__USER32_CS << 16) | __KERNEL_CS);
-	wrmsrl(MSR_LSTAR, (unsigned long)entry_SYSCALL_64);
+    wrmsr(MSR_STAR, 0, (__USER32_CS << 16) | __KERNEL_CS);
+    wrmsrl(MSR_LSTAR, (unsigned long)entry_SYSCALL_64);
     ...
 }
 ```
@@ -224,9 +224,9 @@ void syscall_init(void)
  */
 
 ENTRY(entry_SYSCALL_64)
-	...
-	call	do_syscall_64
-	...
+    ...
+    call	do_syscall_64
+    ...
 ```
 
 ## 深入阅读
