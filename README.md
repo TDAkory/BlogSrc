@@ -20,6 +20,7 @@
 - [深入理解thrift、fbthrift IO模型]()
 - [深入理解`/proc`文件系统](../LinuxLearn/godeep/proc_fs/Things_about_proc_fs.md)
 - [通过例子理解C++filesystem](../CppLearn/Topics/Standard_Lib/filesystem_through_examples.md)
+- [rust中的map和and_then]()
 
 ## Published
 
