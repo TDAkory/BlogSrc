@@ -24,6 +24,7 @@
 - [从源码理解Linux的进程和线程]()
 - [从源码理解GTest运行机制](../CppLearn/Test_Perf_Debug/test/GTest_runtime_through_source_code.md)
 - [从源码理解GMock运行机制](../CppLearn/Test_Perf_Debug/test/GMock_runtime_through_source_code.md)
+- [通过例子学习`std::future`&`folly::future`](../CppLearn/Basic_Concept/Multi_Process/05_std_future_%26_folly_future.md)
 
 ## Published
 
