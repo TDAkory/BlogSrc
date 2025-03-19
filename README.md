@@ -25,6 +25,7 @@
 - [通过例子学习`std::future`&`folly::future`](../CppLearn/Basic_Concept/Multi_Process/05_std_future_%26_folly_future.md)
 - [从源码理解`mmap`]()
 - [Linux动态链接器的实现]
+- [Random Trap](../CppLearn/Basic_Concept/Things_About/Things_about_random_generator.md)
 
 ## Published
 
