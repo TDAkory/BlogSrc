@@ -26,6 +26,7 @@
 - [从源码理解`mmap`]()
 - [Linux动态链接器的实现]
 - [Random Trap](../CppLearn/Basic_Concept/Things_About/Things_about_random_generator.md)
+- [std::launder]()
 
 ## Published
 
