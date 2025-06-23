@@ -26,6 +26,11 @@
 - [从源码理解`mmap`]()
 - [Linux动态链接器的实现]
 - [std::launder]()
+- [C++程序优雅退出的方式]
+  - abort
+  - exit
+  - _exit
+  - glic_exit
 
 ## 论文精读计划
 
