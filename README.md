@@ -31,6 +31,7 @@
   - exit
   - _exit
   - glic_exit
+- [从源码理解k8s scheduler逻辑]()
 
 ## 论文精读计划
 
